@@ -14,7 +14,7 @@ PORCENTAJE_GUARDADO=0.2
 PARTIDAS=1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-env=gym.make("ALE/Tetris-v5",render_mode="rgb_array",obs_type="ram",)
+env=gym.make("ALE/Tetris-v5",render_mode="rgb_array",obs_type="ram",repeat_action_probability=0.0)
 
 # state,_=env.reset(seed=SEED)
 
@@ -53,21 +53,23 @@ if modo==Modo.EXPERTO:
 if modo==Modo.RED:
     modelo=entrenar_modelo(modelo,states,actions,device)
     guardar_datos(modelo=modelo)
+    movimientos = [0, 0, 0, 0, 0]
     for p in range(PARTIDAS):
-            SEED = random.randint(0, 2**32 - 1)
-            state, _ = env.reset(seed=SEED)
-            for _ in range(1000):#100 acciones por partida
-                modelo.eval()
-                with torch.no_grad():
-                    st=state.astype(np.float32)/255
-                    x = torch.from_numpy(st).unsqueeze(0).to(device)
-                    accion_red = int(torch.argmax(modelo(x), dim=-1).item())
+        state, _ = env.reset()
+        for _ in range(1000):#100 acciones por partida
+            modelo.eval()
+            with torch.no_grad():
+                st=state.astype(np.float32)/255
+                x = torch.from_numpy(st).unsqueeze(0).to(device)
+                accion_red = int(torch.argmax(modelo(x), dim=-1).item())
+                movimientos[accion_red] += 1
 
-                dibujar_frame(iniciar_ventana(), env.render())
-                
-                state, reward, terminated, truncated, info = env.step(accion_red)
-                if terminated or truncated:
-                    break
-                # clock.tick(5) #SIN ESTO VA A TODA LECHE
-                print("SCORE:",reward)
+            dibujar_frame(iniciar_ventana(), env.render())
+            
+            state, reward, terminated, truncated, info = env.step(accion_red)
+            if terminated or truncated:
+                break
+            clock.tick(5) #SIN ESTO VA A TODA LECHE
+        print(f"Partida {p + 1} | Acciones IA [NADA, ROT, DER, IZQ, ABAJO]: {movimientos}")
+        
 

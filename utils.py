@@ -104,8 +104,18 @@ def entrenar_modelo(modelo,states,actions,device):
     X=torch.tensor(np.array(states),dtype=torch.float32, device=device)
     y=torch.tensor(np.array(actions),dtype=torch.long,device=device)
 
+    conteos = np.bincount(np.array(actions,dtype=np.int32), minlength=5)
+    
+    print("Ejemplos en dataset [NADA, ROT, DER, IZQ, ABAJO]:", conteos)
+
+    #EVALUAR EN BASE SI HAY MENOS DISTRIBUCIón EN LAS CLASES
+    pesos = 1.0 / np.maximum(conteos, 1)
+    pesos = pesos / pesos.sum() * 5.0
+    class_weights = torch.tensor(pesos, dtype=torch.float32, device=device)
+
+
     optimizer = optim.Adam(modelo.parameters(), lr=1e-3)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     modelo.train()
     epochs = 70
