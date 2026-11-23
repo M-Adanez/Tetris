@@ -18,10 +18,10 @@ PATH_DATA.mkdir(exist_ok=True)
 class Red(nn.Module):
     def __init__(self,input_dim:int=128,output_dim:int=5):
         super().__init__()
-        capa1=nn.Linear(input_dim,256)
-        capa2=nn.Linear(256,128)
-        capa3=nn.Linear(128,32)
-        capa4=nn.Linear(32,output_dim)
+        self.capa1=nn.Linear(input_dim,256)
+        self.capa2=nn.Linear(256,128)
+        self.capa3=nn.Linear(128,32)
+        self.capa4=nn.Linear(32,output_dim)
 
         self.relu = nn.ReLU()
 
@@ -83,7 +83,6 @@ def guardar_datos(modelo=None, states=None, actions=None):
             actions=np.array(actions, dtype=np.int64),
         )
 
-
 def cargar_datos(modelo,device,path_modelo: Path = PATH_MODELO / "modelo.pth", path_datos: Path = PATH_DATA / "data.npz") -> tuple[list, list]:
     states, actions = [], []
 
@@ -96,3 +95,44 @@ def cargar_datos(modelo,device,path_modelo: Path = PATH_MODELO / "modelo.pth", p
         actions = datos["actions"].tolist()
 
     return states, actions
+
+def entrenar_modelo(modelo,states,actions,device):
+    if len(states)==0:
+        print("No hay datos para entrenar")
+        return None
+
+    X=torch.tensor(np.array(states),dtype=torch.float32, device=device)
+    y=torch.tensor(np.array(actions),dtype=torch.long,device=device)
+
+    optimizer = optim.Adam(modelo.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    modelo.train()
+    epochs = 70
+    batch_size = 128
+
+    for epoch in range(epochs):
+        perm = torch.randperm(len(X), device=device) #orden aleatorio para mezlcar
+        loss_total = 0.0
+        aciertos = 0
+
+        for i in range(0,len(X),batch_size):
+            indice=perm[i:i+batch_size]
+            optimizer.zero_grad()
+            accion=modelo(X[indice])
+            loss=criterion(accion,y[indice])
+            loss.backward()
+
+            optimizer.step()
+            loss_total += loss.item() * len(indice)
+            aciertos += (accion.argmax(dim=1) == y[indice]).sum().item()
+        
+        if (epoch + 1) % 10 == 0 or epoch == 0:
+            print(
+                f"Epoch {epoch + 1:02d}/{epochs} | "
+                f"Loss: {loss_total / len(X):.4f} | "
+                f"Imitation: {aciertos / len(X):.1%}"
+            )
+    print("MODEL TRAINED AND SAVED")
+
+    return modelo
